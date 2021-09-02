@@ -176,7 +176,7 @@ func TestReconciler_VerifyVersion(t *testing.T) {
 		{
 			name: "test TestReconciler_VerifyVersion - negative",
 			args: args{
-				installation:  basicInstallation(),
+				installation: basicInstallation(),
 			},
 			want:    false,
 		},
