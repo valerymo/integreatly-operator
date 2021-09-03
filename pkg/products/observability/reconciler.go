@@ -166,10 +166,54 @@ func (r *Reconciler) reconcileComponents(ctx context.Context, serverClient k8scl
 				MatchExpressions: nil,
 			},
 			SelfContained: &observability.SelfContained{
-				DisableRepoSync:       &disabled,
-				DisableObservatorium:  &disabled,
-				DisableDeadmansSnitch: &disabled,
-				DisablePagerDuty:      &disabled,
+				DisableRepoSync:                 &disabled,
+				DisableObservatorium:            &disabled,
+				DisablePagerDuty:                &disabled,
+				DisableDeadmansSnitch:           &disabled,
+				DisableBlackboxExporter:         nil,
+				SelfSignedCerts:                 nil,
+				FederatedMetrics:                nil,
+				PodMonitorLabelSelector:         &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"monitoring-key": r.Config.GetLabelSelector(),
+					},
+				},
+				PodMonitorNamespaceSelector:      &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"monitoring-key": r.Config.GetLabelSelector(),
+					},
+				},
+				ServiceMonitorLabelSelector:      &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"monitoring-key": r.Config.GetLabelSelector(),
+					},
+				},
+				ServiceMonitorNamespaceSelector:  &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"monitoring-key": r.Config.GetLabelSelector(),
+					},
+				},
+				RuleLabelSelector:                &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"monitoring-key": r.Config.GetLabelSelector(),
+					},
+				},
+				RuleNamespaceSelector:            &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"monitoring-key": r.Config.GetLabelSelector(),
+					},
+				},
+				ProbeLabelSelector:               &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"monitoring-key": r.Config.GetLabelSelector(),
+					},
+				},
+				ProbeNamespaceSelector:           &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"monitoring-key": r.Config.GetLabelSelector(),
+					},
+				},
+				AlertManagerConfigSecret:        "",
 			},
 			ResyncPeriod: "1h",
 		}
