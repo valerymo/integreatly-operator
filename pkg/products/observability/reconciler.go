@@ -6,6 +6,7 @@ import (
 	l "github.com/integr8ly/integreatly-operator/pkg/resources/logger"
 	"github.com/integr8ly/integreatly-operator/pkg/resources/quota"
 	"github.com/integr8ly/integreatly-operator/test/common"
+	k8serr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -90,6 +91,23 @@ func (r *Reconciler) Reconcile(ctx context.Context, installation *integreatlyv1a
 	productNamespace := r.Config.GetNamespace()
 
 	phase, err := r.ReconcileFinalizer(ctx, client, installation, string(r.Config.GetProductName()), func() (integreatlyv1alpha1.StatusPhase, error) {
+		// Remove redundant finalizer from observability CR
+		oo := &observability.Observability{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "observability-stack",
+				Namespace: operatorNamespace,
+			},
+		}
+		err := client.Get(ctx, k8sclient.ObjectKey{Name: oo.Name, Namespace: oo.Namespace}, oo)
+		if err != nil && !k8serr.IsNotFound(err) {
+			r.log.Error("Failed to get observability CR", err)
+		}
+		oo.SetFinalizers(resources.Remove(oo.GetFinalizers(), "observability-cleanup"))
+		err = client.Update(ctx, oo)
+		if err != nil && !k8serr.IsNotFound(err) {
+			r.log.Error("Failed to remove redundant finalizer from observability CR", err)
+		}
+
 		phase, err := resources.RemoveNamespace(ctx, installation, client, productNamespace, r.log)
 		if err != nil || phase != integreatlyv1alpha1.PhaseCompleted {
 			return phase, err
