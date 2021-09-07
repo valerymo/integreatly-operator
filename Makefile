@@ -32,6 +32,8 @@ TEMP_SERVICEACCOUNT_NAME=rhmi-operator
 RHMI_TAG ?= 2.9.0
 RHOAM_TAG ?= 1.12.0
 
+GOPRIVATE="github.com/bf2fc6cc711aee1a0c2a/observability-operator"
+
 export SKIP_FLAKES := true
 
 # If openapi-gen is available on the path, use that; otherwise use it through
