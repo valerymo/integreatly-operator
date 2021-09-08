@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/integr8ly/integreatly-operator/pkg/products/monitoringcommon"
 	"io/ioutil"
 	"strings"
 	"testing"
@@ -754,7 +755,7 @@ func TestReconciler_reconcileAlertManagerConfigSecret(t *testing.T) {
 	clusterName := clusterInfra.Status.InfrastructureName
 	clusterID := string(clusterVersion.Spec.ClusterID)
 
-	templateUtil := NewTemplateHelper(map[string]string{
+	templateUtil := monitoringcommon.NewTemplateHelper(map[string]string{
 		"SMTPHost":              string(smtpSecret.Data["host"]),
 		"SMTPPort":              string(smtpSecret.Data["port"]),
 		"SMTPFrom":              mockAlertFromAddress,
@@ -772,7 +773,7 @@ func TestReconciler_reconcileAlertManagerConfigSecret(t *testing.T) {
 		"html":                  fmt.Sprintf(`{{ template "email.integreatly.html" . }}`),
 	})
 
-	templatePath := GetTemplatePath()
+	templatePath := monitoringcommon.GetTemplatePath()
 	path := fmt.Sprintf("%s/%s", templatePath, alertManagerCustomTemplatePath)
 
 	// generate alertmanager custom email template
@@ -954,7 +955,7 @@ func TestReconciler_reconcileAlertManagerConfigSecret(t *testing.T) {
 				clusterName := clusterInfra.Status.InfrastructureName
 				clusterID := string(clusterVersion.Spec.ClusterID)
 
-				templateUtil := NewTemplateHelper(map[string]string{
+				templateUtil := monitoringcommon.NewTemplateHelper(map[string]string{
 					"SMTPHost":              string(smtpSecret.Data["host"]),
 					"SMTPPort":              string(smtpSecret.Data["port"]),
 					"SMTPFrom":              mockAlertFromAddress,
@@ -972,7 +973,7 @@ func TestReconciler_reconcileAlertManagerConfigSecret(t *testing.T) {
 					"html":                  fmt.Sprintf(`{{ template "email.integreatly.html" . }}`),
 				})
 
-				templatePath := GetTemplatePath()
+				templatePath := monitoringcommon.GetTemplatePath()
 				path := fmt.Sprintf("%s/%s", templatePath, alertManagerCustomTemplatePath)
 
 				// generate alertmanager custom email template
