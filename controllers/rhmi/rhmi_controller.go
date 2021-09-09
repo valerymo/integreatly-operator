@@ -224,6 +224,9 @@ func New(mgr ctrl.Manager) *RHMIReconciler {
 
 // +kubebuilder:rbac:groups=operator.marin3r.3scale.net,resources=discoveryservices,verbs=get;list;watch;create;update;delete,namespace=integreatly-operator
 
+// Observability
+// +kubebuilder:rbac:groups=observability.redhat.com,resources=observabilities,verbs=get;list;create;update;delete
+
 func (r *RHMIReconciler) Reconcile(request ctrl.Request) (ctrl.Result, error) {
 	_ = context.Background()
 

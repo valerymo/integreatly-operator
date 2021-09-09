@@ -91,34 +91,30 @@ func (r *Reconciler) Reconcile(ctx context.Context, installation *integreatlyv1a
 	productNamespace := r.Config.GetNamespace()
 
 	phase, err := r.ReconcileFinalizer(ctx, client, installation, string(r.Config.GetProductName()), func() (integreatlyv1alpha1.StatusPhase, error) {
-		// Remove redundant finalizer from observability CR
-		oo := &observability.Observability{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "observability-stack",
-				Namespace: operatorNamespace,
-			},
+		// Check if productNamespace is still present before trying to delete it resources
+		_, err := resources.GetNS(ctx, productNamespace, client)
+		if !k8serr.IsNotFound(err) {
+			// TODO: Add logic to cleanup resources
+			phase, err := resources.RemoveNamespace(ctx, installation, client, productNamespace, r.log)
+			if err != nil || phase != integreatlyv1alpha1.PhaseCompleted {
+				return phase, err
+			}
 		}
-		err := client.Get(ctx, k8sclient.ObjectKey{Name: oo.Name, Namespace: oo.Namespace}, oo)
-		if err != nil && !k8serr.IsNotFound(err) {
-			r.log.Error("Failed to get observability CR", err)
+		// Check if operatorNamespace is still present before trying to delete it resources
+		_, err = resources.GetNS(ctx, operatorNamespace, client)
+		if !k8serr.IsNotFound(err) {
+			phase, err := resources.RemoveNamespace(ctx, installation, client, operatorNamespace, r.log)
+			if err != nil || phase != integreatlyv1alpha1.PhaseCompleted {
+				return phase, err
+			}
 		}
-		oo.SetFinalizers(resources.Remove(oo.GetFinalizers(), "observability-cleanup"))
-		err = client.Update(ctx, oo)
-		if err != nil && !k8serr.IsNotFound(err) {
-			r.log.Error("Failed to remove redundant finalizer from observability CR", err)
+		// If both namespaces are deleted, return complete
+		_, operatorNSErr := resources.GetNS(ctx, operatorNamespace, client)
+		_, productNSErr := resources.GetNS(ctx, productNamespace, client)
+		if k8serr.IsNotFound(operatorNSErr) && k8serr.IsNotFound(productNSErr) {
+			return integreatlyv1alpha1.PhaseCompleted, nil
 		}
-
-		phase, err := resources.RemoveNamespace(ctx, installation, client, productNamespace, r.log)
-		if err != nil || phase != integreatlyv1alpha1.PhaseCompleted {
-			return phase, err
-		}
-
-		phase, err = resources.RemoveNamespace(ctx, installation, client, operatorNamespace, r.log)
-		if err != nil || phase != integreatlyv1alpha1.PhaseCompleted {
-			return phase, err
-		}
-
-		return integreatlyv1alpha1.PhaseCompleted, nil
+		return integreatlyv1alpha1.PhaseInProgress, nil
 	}, r.log)
 	if err != nil || phase != integreatlyv1alpha1.PhaseCompleted {
 		events.HandleError(r.recorder, installation, phase, "Failed to reconcile finalizer", err)
