@@ -262,7 +262,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, installation *integreatlyv1a
 		return phase, err
 	}
 	*/
-	phase, err = monitoringcommon.ReconcileAlertManagerSecrets(ctx, serverClient, r.installation, r.Config.GetOperatorNamespace())
+	phase, err = monitoringcommon.ReconcileAlertManagerSecrets(ctx, serverClient, r.installation, r.Config.GetOperatorNamespace(), alertManagerRouteName)
 	if err != nil || phase != integreatlyv1alpha1.PhaseCompleted {
 		events.HandleError(r.recorder, installation, phase, fmt.Sprintf("Failed to reconcile %s ns", defaultInstallationNamespace), err)
 		return phase, err

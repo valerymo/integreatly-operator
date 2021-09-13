@@ -35,7 +35,8 @@ const (
 	mockBUAlertingEmailAddress       = "noreply-bu-test@rhmi-redhat.com"
 	mockAlertFromAddress             = "noreply-alert@devshift.org"
 
-	defaultInstallationNamespace     = "mock-namespace"
+	defaultInstallationNamespace = "mock-namespace"
+	alertManagerRouteName        = "mock-routename"
 )
 
 func getBuildScheme() (*runtime.Scheme, error) {
@@ -92,7 +93,7 @@ func basicInstallation() *integreatlyv1alpha1.RHMI {
 			SMTPSecret:           mockSMTPSecretName,
 			PagerDutySecret:      mockPagerdutySecretName,
 			DeadMansSnitchSecret: mockDMSSecretName,
-			Type: string(integreatlyv1alpha1.InstallationTypeManaged),
+			Type:                 string(integreatlyv1alpha1.InstallationTypeManaged),
 		},
 	}
 }
@@ -105,7 +106,6 @@ func basicInstallationWithAlertEmailAddress() *integreatlyv1alpha1.RHMI {
 	installation.Spec.AlertingEmailAddresses.BusinessUnit = mockBUAlertingEmailAddress
 	return installation
 }
-
 
 func TestReconciler_reconcileAlertManagerSecrets(t *testing.T) {
 	basicScheme, err := getBuildScheme()
@@ -416,10 +416,9 @@ func TestReconciler_reconcileAlertManagerSecrets(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-
 			serverClient := tt.serverClient()
 
-			got, err := ReconcileAlertManagerSecrets(context.TODO(), serverClient, installation, defaultInstallationNamespace)
+			got, err := ReconcileAlertManagerSecrets(context.TODO(), serverClient, installation, defaultInstallationNamespace, alertManagerRouteName)
 			if tt.wantErr != "" && err.Error() != tt.wantErr {
 				t.Errorf("reconcileAlertManagerConfigSecret() error = %v, wantErr %v", err.Error(), tt.wantErr)
 				return
@@ -611,4 +610,3 @@ func TestReconciler_getDMSSecret(t *testing.T) {
 		})
 	}
 }
-

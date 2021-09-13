@@ -28,22 +28,8 @@ const (
 	defaultInstallationNamespace = "observability"
 
 	// alert manager configuration
-	alertManagerRouteName                   = "kafka-alertmanager"
-	alertManagerConfigSecretName            = "alertmanager-application-monitoring"
-	alertManagerConfigSecretFileName        = "alertmanager.yaml"
-	alertManagerEmailTemplateSecretFileName = "alertmanager-email-config.tmpl"
-	alertManagerConfigTemplatePath          = "alertmanager/alertmanager-application-monitoring.yaml"
-	alertManagerCustomTemplatePath          = "alertmanager/alertmanager-email-config.tmpl"
-
-	// Cluster infrastructure
-	clusterInfraName = "cluster"
-
-	// For Cluster ID
-	clusterIDValue = "version"
-
-	// For OpenShift console
-	openShiftConsoleRoute     = "console"
-	openShiftConsoleNamespace = "openshift-console"
+	alertManagerRouteName        = "kafka-alertmanager"
+	alertManagerConfigSecretName = "alertmanager-application-monitoring"
 )
 
 type Reconciler struct {
@@ -160,13 +146,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, installation *integreatlyv1a
 		events.HandleError(r.recorder, installation, phase, fmt.Sprintf("Failed to reconcile %s subscription", constants.ObservabilitySubscriptionName), err)
 		return phase, err
 	}
-	config :=r.Config
-	phase, err = monitoringcommon.ReconcileAlertManagerSecrets(ctx,client, r.installation, config.GetOperatorNamespace() )
-	r.log.Info("Do i get here================================================")
-	if err != nil || phase != integreatlyv1alpha1.PhaseCompleted {
-		events.HandleError(r.recorder, installation, phase, fmt.Sprintf("Failed to reconcile %s ns", productNamespace), err)
-		return phase, err
-	}
 
 	phase, err = r.reconcileComponents(ctx, client, installation, productNamespace)
 	if err != nil || phase != integreatlyv1alpha1.PhaseCompleted {
@@ -174,6 +153,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, installation *integreatlyv1a
 		return phase, err
 	}
 
+	phase, err = monitoringcommon.ReconcileAlertManagerSecrets(ctx, client, r.installation, r.Config.GetNamespace(), alertManagerRouteName)
+	if err != nil || phase != integreatlyv1alpha1.PhaseCompleted {
+		events.HandleError(r.recorder, installation, phase, fmt.Sprintf("Failed to reconcile %s ns", productNamespace), err)
+		return phase, err
+	}
 
 	if string(r.Config.GetProductVersion()) != string(integreatlyv1alpha1.VersionObservability) {
 		r.Config.SetProductVersion(string(integreatlyv1alpha1.VersionObservability))

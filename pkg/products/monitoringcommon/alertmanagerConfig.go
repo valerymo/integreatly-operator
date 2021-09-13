@@ -24,7 +24,6 @@ import (
 
 const (
 	// alert manager configuration
-	alertManagerRouteName                   = "alertmanager"
 	alertManagerConfigSecretName            = "alertmanager-application-monitoring"
 	alertManagerConfigSecretFileName        = "alertmanager.yaml"
 	alertManagerEmailTemplateSecretFileName = "alertmanager-email-config.tmpl"
@@ -42,7 +41,7 @@ const (
 	openShiftConsoleNamespace = "openshift-console"
 )
 
-func ReconcileAlertManagerSecrets(ctx context.Context, serverClient k8sclient.Client, installation *integreatlyv1alpha1.RHMI, operatorNamespace string) (integreatlyv1alpha1.StatusPhase, error) {
+func ReconcileAlertManagerSecrets(ctx context.Context, serverClient k8sclient.Client, installation *integreatlyv1alpha1.RHMI, productNamespace string, alertManagerRouteName string) (integreatlyv1alpha1.StatusPhase, error) {
 	log := l.NewLogger()
 
 	log.Info("reconciling alertmanager configuration secret")
@@ -51,7 +50,7 @@ func ReconcileAlertManagerSecrets(ctx context.Context, serverClient k8sclient.Cl
 
 	// handle alert manager route
 	alertmanagerRoute := &v1.Route{}
-	if err := serverClient.Get(ctx, types.NamespacedName{Name: alertManagerRouteName, Namespace: operatorNamespace}, alertmanagerRoute); err != nil {
+	if err := serverClient.Get(ctx, types.NamespacedName{Name: alertManagerRouteName, Namespace: productNamespace}, alertmanagerRoute); err != nil {
 		if k8serr.IsNotFound(err) {
 			log.Infof("alert manager route not available, cannot create alert manager config secret", l.Fields{"route": alertManagerRouteName})
 			return integreatlyv1alpha1.PhaseAwaitingComponents, nil
@@ -98,7 +97,7 @@ func ReconcileAlertManagerSecrets(ctx context.Context, serverClient k8sclient.Cl
 
 	var existingSMTPFromAddress = ""
 	if installation.Spec.Type == string(integreatlyv1alpha1.InstallationTypeManaged) {
-		existingSMTPFromAddress, err = resources.GetExistingSMTPFromAddress(ctx, serverClient, operatorNamespace)
+		existingSMTPFromAddress, err = resources.GetExistingSMTPFromAddress(ctx, serverClient, productNamespace)
 		if err != nil {
 			if !apiErrors.IsNotFound(err) {
 				log.Error("Error getting application monitoring secret", err)
@@ -189,7 +188,7 @@ func ReconcileAlertManagerSecrets(ctx context.Context, serverClient k8sclient.Cl
 	configSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      alertManagerConfigSecretName,
-			Namespace: operatorNamespace,
+			Namespace: productNamespace,
 		},
 		Type: corev1.SecretTypeOpaque,
 	}
@@ -265,4 +264,3 @@ func prepareEmailAddresses(list string) string {
 	addresses := strings.Split(strings.TrimSpace(list), " ")
 	return strings.Join(addresses, ", ")
 }
-
