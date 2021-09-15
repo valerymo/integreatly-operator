@@ -137,8 +137,12 @@ func (r *Reconciler) Reconcile(ctx context.Context, installation *integreatlyv1a
 	}
 
 	phase, err = monitoringcommon.ReconcileAlertManagerSecrets(ctx, client, r.installation, r.Config.GetNamespace(), alertManagerRouteName)
+	r.log.Infof("ReconcileAlertManagerConfigSecret", l.Fields{"phase": phase})
 	if err != nil || phase != integreatlyv1alpha1.PhaseCompleted {
-		events.HandleError(r.recorder, installation, phase, fmt.Sprintf("Failed to reconcile %s ns", productNamespace), err)
+		if err != nil {
+			r.log.Warning("failed to reconcile alert manager config secret " + err.Error())
+		}
+		events.HandleError(r.recorder, installation, phase, "Failed to reconcile alert manager config secret", err)
 		return phase, err
 	}
 

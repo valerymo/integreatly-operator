@@ -179,7 +179,7 @@ func TestReconciler_reconcileAlertManagerSecrets(t *testing.T) {
 
 	clusterVersion := &configv1.ClusterVersion{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: clusterIDValue,
+			Name: clusterVersionName,
 		},
 		Spec: configv1.ClusterVersionSpec{
 			ClusterID: "cluster-id",

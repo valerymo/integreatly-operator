@@ -72,15 +72,6 @@ func basicInstallation() *integreatlyv1alpha1.RHMI {
 	}
 }
 
-func basicInstallationWithAlertEmailAddress() *integreatlyv1alpha1.RHMI {
-	installation := basicInstallation()
-	installation.Spec.AlertFromAddress = mockAlertFromAddress
-	installation.Spec.AlertingEmailAddress = mockCustomerAlertingEmailAddress
-	installation.Spec.AlertingEmailAddresses.CSSRE = mockAlertingEmailAddress
-	installation.Spec.AlertingEmailAddresses.BusinessUnit = mockBUAlertingEmailAddress
-	return installation
-}
-
 func basicConfigMock() *config.ConfigReadWriterMock {
 	return &config.ConfigReadWriterMock{
 		ReadMonitoringFunc: func() (ready *config.Monitoring, e error) {
