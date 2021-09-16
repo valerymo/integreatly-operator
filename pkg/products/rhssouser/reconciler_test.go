@@ -188,6 +188,7 @@ func TestReconciler_config(t *testing.T) {
 		Recorder              record.EventRecorder
 		ApiUrl                string
 		KeycloakClientFactory keycloakCommon.KeycloakClientFactory
+		Uninstall             bool
 	}{
 		{
 			Name:            "test error on failed config",
@@ -206,6 +207,7 @@ func TestReconciler_config(t *testing.T) {
 			Product:               &integreatlyv1alpha1.RHMIProductStatus{},
 			ApiUrl:                "https://serverurl",
 			KeycloakClientFactory: getMoqKeycloakClientFactory(),
+			Uninstall:             false,
 		},
 	}
 
@@ -235,7 +237,7 @@ func TestReconciler_config(t *testing.T) {
 				return
 			}
 
-			status, err := testReconciler.Reconcile(context.TODO(), tc.Installation, tc.Product, tc.FakeClient, &quota.ProductConfigMock{})
+			status, err := testReconciler.Reconcile(context.TODO(), tc.Installation, tc.Product, tc.FakeClient, &quota.ProductConfigMock{}, tc.Uninstall)
 			if err != nil && !tc.ExpectError {
 				t.Fatalf("expected error but got one: %v", err)
 			}
@@ -647,8 +649,8 @@ func TestReconciler_full_RHMI_Reconcile(t *testing.T) {
 					Name: "codeready-stage",
 					Products: map[integreatlyv1alpha1.ProductName]integreatlyv1alpha1.RHMIProductStatus{
 						integreatlyv1alpha1.ProductCodeReadyWorkspaces: {
-							Name:   integreatlyv1alpha1.ProductCodeReadyWorkspaces,
-							Status: integreatlyv1alpha1.PhaseCreatingComponents,
+							Name:  integreatlyv1alpha1.ProductCodeReadyWorkspaces,
+							Phase: integreatlyv1alpha1.PhaseCreatingComponents,
 						},
 					},
 				},
@@ -778,6 +780,7 @@ func TestReconciler_full_RHMI_Reconcile(t *testing.T) {
 		ApiUrl                string
 		KeycloakClientFactory keycloakCommon.KeycloakClientFactory
 		ProductConfig         *quota.ProductConfigMock
+		Uninstall             bool
 	}{
 		{
 			Name:            "test successful reconcile",
@@ -817,6 +820,7 @@ func TestReconciler_full_RHMI_Reconcile(t *testing.T) {
 					return nil
 				},
 			},
+			Uninstall: false,
 		},
 	}
 
@@ -837,7 +841,7 @@ func TestReconciler_full_RHMI_Reconcile(t *testing.T) {
 				t.Fatalf("unexpected error : '%v', expected: '%v'", err, tc.ExpectedError)
 			}
 
-			status, err := testReconciler.Reconcile(context.TODO(), tc.Installation, tc.Product, tc.FakeClient, tc.ProductConfig)
+			status, err := testReconciler.Reconcile(context.TODO(), tc.Installation, tc.Product, tc.FakeClient, tc.ProductConfig, tc.Uninstall)
 
 			if err != nil && !tc.ExpectError {
 				t.Fatalf("expected no errors, but got one: %v", err)
@@ -877,8 +881,8 @@ func TestReconciler_full_RHOAM_Reconcile(t *testing.T) {
 					Name: "rhsso-stage",
 					Products: map[integreatlyv1alpha1.ProductName]integreatlyv1alpha1.RHMIProductStatus{
 						integreatlyv1alpha1.ProductCodeReadyWorkspaces: {
-							Name:   integreatlyv1alpha1.ProductRHSSO,
-							Status: integreatlyv1alpha1.PhaseCreatingComponents,
+							Name:  integreatlyv1alpha1.ProductRHSSO,
+							Phase: integreatlyv1alpha1.PhaseCreatingComponents,
 						},
 					},
 				},
@@ -1011,6 +1015,7 @@ func TestReconciler_full_RHOAM_Reconcile(t *testing.T) {
 		ApiUrl                string
 		KeycloakClientFactory keycloakCommon.KeycloakClientFactory
 		ProductConfig         *quota.ProductConfigMock
+		Uninstall             bool
 	}{
 		{
 			Name:            "RHOAM - test successful reconcile",
@@ -1050,6 +1055,7 @@ func TestReconciler_full_RHOAM_Reconcile(t *testing.T) {
 					return nil
 				},
 			},
+			Uninstall: false,
 		},
 	}
 
@@ -1070,7 +1076,7 @@ func TestReconciler_full_RHOAM_Reconcile(t *testing.T) {
 				t.Fatalf("unexpected error : '%v', expected: '%v'", err, tc.ExpectedError)
 			}
 
-			status, err := testReconciler.Reconcile(context.TODO(), tc.Installation, tc.Product, tc.FakeClient, tc.ProductConfig)
+			status, err := testReconciler.Reconcile(context.TODO(), tc.Installation, tc.Product, tc.FakeClient, tc.ProductConfig, tc.Uninstall)
 
 			if err != nil && !tc.ExpectError {
 				t.Fatalf("expected no errors, but got one: %v", err)
