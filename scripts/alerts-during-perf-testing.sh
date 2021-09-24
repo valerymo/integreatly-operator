@@ -13,7 +13,7 @@ RHSSO="rhsso"
 USER_SSO="user-sso"
 THREESCALE="3scale"
 TOKEN=$(oc whoami --show-token)
-MONITORING_ROUTE=$(echo "https://$(oc get route prometheus-route -n ${NAMESPACE_PREFIX}middleware-monitoring-operator -o=jsonpath='{.spec.host}')")/api/v1/alerts
+MONITORING_ROUTE=$(echo "https://$(oc get route kafka-prometheus -n ${NAMESPACE_PREFIX}observability -o=jsonpath='{.spec.host}')")/api/v1/alerts
 
 # remove tmp files on ctrl-c
 trap "rm tmp-alert-firing-during-perf-testing-report.csv tmp-alert-pending-during-perf-testing-report.csv" EXIT
@@ -41,10 +41,10 @@ if (( $# == 0 )); then
   while :; do
     # generate a report
     curl -s -H "Authorization: Bearer $TOKEN" $MONITORING_ROUTE \
-    | jq -r '.data.alerts[]| select(.state=="pending") | [.labels.alertname, .state, .activeAt ] | @csv'>> tmp-alert-pending-during-perf-testing-report.csv
+    | jq -r '.data.alerts[]| select(.state=="pending") | [.labels.alertname, .state, .activeAt ] | @csv'>> tmp-alert-pending-during-perf-testing-report.csv #TODO check this command still works
 
     curl -s -H "Authorization: Bearer $TOKEN" $MONITORING_ROUTE \
-    | jq -r '.data.alerts[]| select(.state=="firing") | [.labels.alertname, .state, .activeAt ] | @csv'>> tmp-alert-firing-during-perf-testing-report.csv
+    | jq -r '.data.alerts[]| select(.state=="firing") | [.labels.alertname, .state, .activeAt ] | @csv'>> tmp-alert-firing-during-perf-testing-report.csv #TODO check this command
 
     # sort command to remove duplicate alert
     sort -t',' -k 1,1 -u tmp-alert-firing-during-perf-testing-report.csv > alert-firing-during-perf-testing-report.csv
@@ -65,7 +65,7 @@ if [ -z "$PRODUCT_NAME" ]; then
   echo - "marin3r"
 else
   echo "Check $PRODUCT_NAME product namespace and operator namespace for alerts"
-  while :; do
+  while :; do #TODO when running the script these should work if the above tests work
     if [ $PRODUCT_NAME == $RHSSO ] || [ $PRODUCT_NAME == $USER_SSO ]; then
       curl -s -H "Authorization: Bearer $TOKEN" $MONITORING_ROUTE \
       | jq -r '.data.alerts[]| select((.state=="pending") and (.labels.namespace=="'$NAMESPACE_PREFIX''$PRODUCT_NAME'" or .labels.namespace=="'$NAMESPACE_PREFIX''$PRODUCT_NAME'-operator" or .labels.productName=="'$PRODUCT_NAME'" or (.labels.alertname|test("Keycloak.+")))) | [.labels.alertname, .labels.namespace, .state, .activeAt ] | @csv'>> tmp-alert-pending-during-perf-testing-report.csv
