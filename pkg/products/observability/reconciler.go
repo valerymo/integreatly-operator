@@ -204,6 +204,16 @@ func (r *Reconciler) Reconcile(ctx context.Context, installation *integreatlyv1a
 		return phase, err
 	}
 
+	//phase, err = monitoringspec.reconcileMonitoring(ctx, client, installation)
+	//r.log.Infof("Phase: reconcileMonitoring", l.Fields{"status": phase})
+	//if err != nil || phase != integreatlyv1alpha1.PhaseCompleted {
+	//	if err != nil {
+	//		r.log.Warning("failed to reconcile:" + err.Error())
+	//		events.HandleError(r.recorder, installation, phase, "Failed to reconcile:", err)
+	//	}
+	//	return phase, err
+	//}
+
 	if string(r.Config.GetProductVersion()) != string(integreatlyv1alpha1.VersionObservability) {
 		r.Config.SetProductVersion(string(integreatlyv1alpha1.VersionObservability))
 		err := r.ConfigManager.WriteConfig(r.Config)
@@ -323,7 +333,6 @@ func (r *Reconciler) reconcileComponents(ctx context.Context, serverClient k8scl
 		},
 	}
 
-
 	op, err := controllerutil.CreateOrUpdate(ctx, serverClient, oo, func() error {
 		disabled := true
 		oo.Spec = observability.ObservabilitySpec{
@@ -352,32 +361,7 @@ func (r *Reconciler) reconcileComponents(ctx context.Context, serverClient k8scl
 				DisableDeadmansSnitch:   &disabled,
 				DisableBlackboxExporter: nil,
 				SelfSignedCerts:         nil,
-				FederatedMetrics: []string{
-					"'kubelet_volume_stats_used_bytes{endpoint=\"https-metrics\",namespace=~\"redhat-rhoam-.*\"}'",
-					"'kubelet_volume_stats_available_bytes{endpoint=\"https-metrics\",namespace=~\"redhat-rhoam-.*\"}'",
-					"'kubelet_volume_stats_capacity_bytes{endpoint=\"https-metrics\",namespace=~\"redhat-rhoam-.*\"}'",
-					"'haproxy_backend_http_responses_total{route=~\"^keycloak.*\",exported_namespace=~\"redhat-rhoam-.*sso$\"}'",
-					"'{ service=\"kube-state-metrics\" }'",
-					"'{ service=\"node-exporter\" }'",
-					"'{ __name__=~\"node_namespace_pod_container:.*\" }'",
-					"'{ __name__=~\"node:.*\" }'",
-					"'{ __name__=~\"instance:.*\" }'",
-					"'{ __name__=~\"container_memory_.*\" }'",
-					"'{ __name__=~\":node_memory_.*\" }'",
-					"'{ __name__=~\"csv_.*\" }'",
-				},
-				PodMonitorLabelSelector: &metav1.LabelSelector{
-					MatchExpressions: []metav1.LabelSelectorRequirement{
-						{
-							Key:      "monitoring-key",
-							Operator: metav1.LabelSelectorOpIn,
-							Values: []string{
-								r.Config.GetLabelSelector(),
-							},
-						},
-					},
-				},
-
+				PodMonitorLabelSelector: nil,
 				PodMonitorNamespaceSelector: &metav1.LabelSelector{
 					MatchExpressions: []metav1.LabelSelectorRequirement{
 						{
@@ -389,17 +373,7 @@ func (r *Reconciler) reconcileComponents(ctx context.Context, serverClient k8scl
 						},
 					},
 				},
-				ServiceMonitorLabelSelector: &metav1.LabelSelector{
-					MatchExpressions: []metav1.LabelSelectorRequirement{
-						{
-							Key:      "monitoring-key",
-							Operator: metav1.LabelSelectorOpIn,
-							Values: []string{
-								r.Config.GetLabelSelector(),
-							},
-						},
-					},
-				},
+				ServiceMonitorLabelSelector: nil,
 				ServiceMonitorNamespaceSelector: &metav1.LabelSelector{
 					MatchExpressions: []metav1.LabelSelectorRequirement{
 						{
@@ -411,40 +385,8 @@ func (r *Reconciler) reconcileComponents(ctx context.Context, serverClient k8scl
 						},
 					},
 				},
-				RuleLabelSelector: &metav1.LabelSelector{
-					MatchExpressions: []metav1.LabelSelectorRequirement{
-						{
-							Key:      "monitoring-key",
-							Operator: metav1.LabelSelectorOpIn,
-							Values: []string{
-								r.Config.GetLabelSelector(),
-							},
-						},
-					},
-				},
+				RuleLabelSelector: nil,
 				RuleNamespaceSelector: &metav1.LabelSelector{
-					MatchExpressions: []metav1.LabelSelectorRequirement{
-						{
-							Key:      "monitoring-key",
-							Operator: metav1.LabelSelectorOpIn,
-							Values: []string{
-								r.Config.GetLabelSelector(),
-							},
-						},
-					},
-				},
-				ProbeLabelSelector: &metav1.LabelSelector{
-					MatchExpressions: []metav1.LabelSelectorRequirement{
-						{
-							Key:      "monitoring-key",
-							Operator: metav1.LabelSelectorOpIn,
-							Values: []string{
-								r.Config.GetLabelSelector(),
-							},
-						},
-					},
-				},
-				ProbeNamespaceSelector: &metav1.LabelSelector{
 					MatchExpressions: []metav1.LabelSelectorRequirement{
 						{
 							Key:      "monitoring-key",
@@ -472,6 +414,22 @@ func (r *Reconciler) reconcileComponents(ctx context.Context, serverClient k8scl
 				AlertManagerVersion:      r.Config.GetAlertManagerVersion(),
 				PrometheusRoute:          r.Config.GetPrometheusRouteName(),
 				AlertManagerRoute:        r.Config.GetAlertManagerRouteName(),
+				ProbeLabelSelector:       nil,
+				ProbeNamespaceSelector:   nil,
+				FederatedMetrics: []string{
+					"'kubelet_volume_stats_used_bytes{endpoint=\"https-metrics\",namespace=~\"redhat-rhoam-.*\"}'",
+					"'kubelet_volume_stats_available_bytes{endpoint=\"https-metrics\",namespace=~\"redhat-rhoam-.*\"}'",
+					"'kubelet_volume_stats_capacity_bytes{endpoint=\"https-metrics\",namespace=~\"redhat-rhoam-.*\"}'",
+					"'haproxy_backend_http_responses_total{route=~\"^keycloak.*\",exported_namespace=~\"redhat-rhoam-.*sso$\"}'",
+					"'{ service=\"kube-state-metrics\" }'",
+					"'{ service=\"node-exporter\" }'",
+					"'{ __name__=~\"node_namespace_pod_container:.*\" }'",
+					"'{ __name__=~\"node:.*\" }'",
+					"'{ __name__=~\"instance:.*\" }'",
+					"'{ __name__=~\"container_memory_.*\" }'",
+					"'{ __name__=~\":node_memory_.*\" }'",
+					"'{ __name__=~\"csv_.*\" }'",
+				},
 			},
 			ResyncPeriod: "1h",
 		}

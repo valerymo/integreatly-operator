@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	defaultInstallationNamespace              = "monitoring"
+	defaultInstallationNamespace              = "observability"
 	packageName                               = "monitoringspec"
 	roleBindingName                           = "rhmi-prometheus-k8s"
 	clusterMonitoringPrometheusServiceAccount = "prometheus-k8s"
