@@ -172,7 +172,7 @@ func (r *Reconciler) createNamespace(ctx context.Context, serverClient k8sclient
 		return integreatlyv1alpha1.PhaseCompleted, nil
 	}
 
-	resources.PrepareObject(namespace, installation, false, true)
+	resources.PrepareObject(namespace, installation, false, false)
 	err = serverClient.Update(ctx, namespace)
 	if err != nil {
 		return integreatlyv1alpha1.PhaseFailed, err

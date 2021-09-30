@@ -361,6 +361,20 @@ func (r *Reconciler) reconcileComponents(ctx context.Context, serverClient k8scl
 				DisableDeadmansSnitch:   &disabled,
 				DisableBlackboxExporter: nil,
 				SelfSignedCerts:         nil,
+				FederatedMetrics: []string{
+					"'kubelet_volume_stats_used_bytes{endpoint=\"https-metrics\",namespace=~\"redhat-rhoam-.*\"}'",
+					"'kubelet_volume_stats_available_bytes{endpoint=\"https-metrics\",namespace=~\"redhat-rhoam-.*\"}'",
+					"'kubelet_volume_stats_capacity_bytes{endpoint=\"https-metrics\",namespace=~\"redhat-rhoam-.*\"}'",
+					"'haproxy_backend_http_responses_total{route=~\"^keycloak.*\",exported_namespace=~\"redhat-rhoam-.*sso$\"}'",
+					"'{ service=\"kube-state-metrics\" }'",
+					"'{ service=\"node-exporter\" }'",
+					"'{ __name__=~\"node_namespace_pod_container:.*\" }'",
+					"'{ __name__=~\"node:.*\" }'",
+					"'{ __name__=~\"instance:.*\" }'",
+					"'{ __name__=~\"container_memory_.*\" }'",
+					"'{ __name__=~\":node_memory_.*\" }'",
+					"'{ __name__=~\"csv_.*\" }'",
+				},
 				PodMonitorLabelSelector: nil,
 				PodMonitorNamespaceSelector: &metav1.LabelSelector{
 					MatchExpressions: []metav1.LabelSelectorRequirement{
@@ -397,6 +411,8 @@ func (r *Reconciler) reconcileComponents(ctx context.Context, serverClient k8scl
 						},
 					},
 				},
+				ProbeLabelSelector:       nil,
+				ProbeNamespaceSelector:   nil,
 				GrafanaDashboardLabelSelector: &metav1.LabelSelector{
 					MatchExpressions: []metav1.LabelSelectorRequirement{
 						{
@@ -414,22 +430,6 @@ func (r *Reconciler) reconcileComponents(ctx context.Context, serverClient k8scl
 				AlertManagerVersion:      r.Config.GetAlertManagerVersion(),
 				PrometheusRoute:          r.Config.GetPrometheusRouteName(),
 				AlertManagerRoute:        r.Config.GetAlertManagerRouteName(),
-				ProbeLabelSelector:       nil,
-				ProbeNamespaceSelector:   nil,
-				FederatedMetrics: []string{
-					"'kubelet_volume_stats_used_bytes{endpoint=\"https-metrics\",namespace=~\"redhat-rhoam-.*\"}'",
-					"'kubelet_volume_stats_available_bytes{endpoint=\"https-metrics\",namespace=~\"redhat-rhoam-.*\"}'",
-					"'kubelet_volume_stats_capacity_bytes{endpoint=\"https-metrics\",namespace=~\"redhat-rhoam-.*\"}'",
-					"'haproxy_backend_http_responses_total{route=~\"^keycloak.*\",exported_namespace=~\"redhat-rhoam-.*sso$\"}'",
-					"'{ service=\"kube-state-metrics\" }'",
-					"'{ service=\"node-exporter\" }'",
-					"'{ __name__=~\"node_namespace_pod_container:.*\" }'",
-					"'{ __name__=~\"node:.*\" }'",
-					"'{ __name__=~\"instance:.*\" }'",
-					"'{ __name__=~\"container_memory_.*\" }'",
-					"'{ __name__=~\":node_memory_.*\" }'",
-					"'{ __name__=~\"csv_.*\" }'",
-				},
 			},
 			ResyncPeriod: "1h",
 		}
