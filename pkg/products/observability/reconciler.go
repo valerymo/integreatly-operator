@@ -204,16 +204,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, installation *integreatlyv1a
 		return phase, err
 	}
 
-	//phase, err = monitoringspec.reconcileMonitoring(ctx, client, installation)
-	//r.log.Infof("Phase: reconcileMonitoring", l.Fields{"status": phase})
-	//if err != nil || phase != integreatlyv1alpha1.PhaseCompleted {
-	//	if err != nil {
-	//		r.log.Warning("failed to reconcile:" + err.Error())
-	//		events.HandleError(r.recorder, installation, phase, "Failed to reconcile:", err)
-	//	}
-	//	return phase, err
-	//}
-
 	if string(r.Config.GetProductVersion()) != string(integreatlyv1alpha1.VersionObservability) {
 		r.Config.SetProductVersion(string(integreatlyv1alpha1.VersionObservability))
 		err := r.ConfigManager.WriteConfig(r.Config)
@@ -411,8 +401,8 @@ func (r *Reconciler) reconcileComponents(ctx context.Context, serverClient k8scl
 						},
 					},
 				},
-				ProbeLabelSelector:       nil,
-				ProbeNamespaceSelector:   nil,
+				ProbeLabelSelector:     nil,
+				ProbeNamespaceSelector: nil,
 				GrafanaDashboardLabelSelector: &metav1.LabelSelector{
 					MatchExpressions: []metav1.LabelSelectorRequirement{
 						{

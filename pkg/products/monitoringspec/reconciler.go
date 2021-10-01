@@ -5,6 +5,7 @@ import (
 	"fmt"
 	l "github.com/integr8ly/integreatly-operator/pkg/resources/logger"
 	"github.com/integr8ly/integreatly-operator/pkg/resources/quota"
+	"strings"
 
 	"github.com/integr8ly/integreatly-operator/pkg/resources/events"
 	"github.com/integr8ly/integreatly-operator/version"
@@ -29,7 +30,6 @@ import (
 )
 
 const (
-	defaultInstallationNamespace              = "observability"
 	packageName                               = "monitoringspec"
 	roleBindingName                           = "rhmi-prometheus-k8s"
 	clusterMonitoringPrometheusServiceAccount = "prometheus-k8s"
@@ -52,7 +52,7 @@ type Reconciler struct {
 	recorder record.EventRecorder
 }
 
-func (r *Reconciler) GetPreflightObject(ns string) runtime.Object {
+func (r *Reconciler) GetPreflightObject(_ string) runtime.Object {
 	return nil
 }
 
@@ -72,9 +72,17 @@ func NewReconciler(configManager config.ConfigReadWriter, installation *integrea
 		return nil, err
 	}
 	config.SetNamespacePrefix(installation.Spec.NamespacePrefix)
-	if config.GetNamespace() == "" {
+
+	defaultInstallationNamespace := "observability"
+	if !integreatlyv1alpha1.IsRHOAM(integreatlyv1alpha1.InstallationType(installation.Spec.Type)) {
+		defaultInstallationNamespace = "monitoring"
+	}
+	// to handle upgrade cases where monitoring is uninstalled and observability is installed we also need to update the config
+	// if the defaultInstallationNamespace set above based on install type doesn't match what's currently set in the config
+	if config.GetNamespace() == "" || strings.Compare(config.GetNamespace(), installation.Spec.NamespacePrefix + defaultInstallationNamespace) != 0 {
 		config.SetNamespace(installation.Spec.NamespacePrefix + defaultInstallationNamespace)
 	}
+	configManager.WriteConfig(config)
 	return &Reconciler{
 		Config:        config,
 		extraParams:   make(map[string]string),
@@ -172,7 +180,7 @@ func (r *Reconciler) createNamespace(ctx context.Context, serverClient k8sclient
 		return integreatlyv1alpha1.PhaseCompleted, nil
 	}
 
-	resources.PrepareObject(namespace, installation, false, false)
+	resources.PrepareObject(namespace, installation, true, false)
 	err = serverClient.Update(ctx, namespace)
 	if err != nil {
 		return integreatlyv1alpha1.PhaseFailed, err
