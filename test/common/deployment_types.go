@@ -34,7 +34,7 @@ var (
 	commonApiDeploymentsList = []string{
 		"threeScaleDeployment",
 		"cloudResourceOperatorDeployment",
-		"monitoringOperatorDeployment",
+		"observabilityDeployment",
 		"rhssoOperatorDeployment",
 		"rhssoUserOperatorDeployment",
 	}
@@ -90,10 +90,9 @@ func getDeploymentConfiguration(deploymentName string, inst *integreatlyv1alpha1
 				{Name: "syndesis-operator", ExpectedReplicas: 1},
 			},
 		},
-		"monitoringOperatorDeployment": {
-			Name: MonitoringOperatorNamespace,
+		"observabilityDeployment": {
+			Name: ObservabilityProductNamespace,
 			Products: []Product{
-				{Name: "application-monitoring-operator", ExpectedReplicas: 1},
 				{Name: "grafana-deployment", ExpectedReplicas: 1},
 				{Name: "grafana-operator", ExpectedReplicas: 1},
 				{Name: "prometheus-operator", ExpectedReplicas: 1},
@@ -274,7 +273,6 @@ func TestDeploymentExpectedReplicas(t TestingTB, ctx *TestingContext) {
 
 	for _, namespace := range deployments {
 		for _, product := range namespace.Products {
-
 			deployment, err := ctx.KubeClient.AppsV1().Deployments(namespace.Name).Get(goctx.TODO(), product.Name, metav1.GetOptions{})
 			if err != nil {
 				// Fail the test without failing immideatlly
@@ -479,10 +477,10 @@ func TestStatefulSetsExpectedReplicas(t TestingTB, ctx *TestingContext) {
 	}
 	statefulSets := []Namespace{
 		{
-			Name: MonitoringOperatorNamespace,
+			Name: ObservabilityProductNamespace,
 			Products: []Product{
-				{Name: "alertmanager-application-monitoring", ExpectedReplicas: 1},
-				{Name: "prometheus-application-monitoring", ExpectedReplicas: 1},
+				{Name: "alertmanager-kafka-alertmanager", ExpectedReplicas: 1},
+				{Name: "prometheus-kafka-prometheus", ExpectedReplicas: 1},
 			},
 		},
 		{

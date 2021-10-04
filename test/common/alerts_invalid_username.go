@@ -39,7 +39,14 @@ var (
 	clusterOauthPreTest = &configv1.OAuth{}
 )
 
-func TestInvalidUserNameAlert(t TestingTB, ctx *TestingContext) {
+func TestInvalidUserNameAlertObservability(t TestingTB, ctx *TestingContext) {
+	prometheusPod := "prometheus-kafka-prometheus-0"
+	execToPodCommand := "wget -qO - localhost:9090/api/v1/rules"
+	testInvalidUserNameAlert(t, ctx, ObservabilityProductNamespace, prometheusPod, execToPodCommand)
+}
+
+func testInvalidUserNameAlert(t TestingTB, ctx *TestingContext, monitoringNamespace string,
+								prometheusPod string, command string) {
 	goCtx := context.TODO()
 
 	// Get resources before test execution and always try to restore cluster to pre test state
@@ -79,7 +86,7 @@ func TestInvalidUserNameAlert(t TestingTB, ctx *TestingContext) {
 	pollOpenshiftUserLogin(t, ctx, masterURL, userLong2)
 
 	// Validate ThreeScaleUserCreationFailed alerts is firing
-	validateAlertIsFiring(t, ctx, userFailedCreateAlertName)
+	validateAlertIsFiring(t, ctx, userFailedCreateAlertName, monitoringNamespace, prometheusPod, command)
 
 	// Delete user from Openshift
 	if err := ctx.Client.Delete(goCtx, &userv1.User{ObjectMeta: metav1.ObjectMeta{Name: userLong2}}); err != nil {
@@ -88,7 +95,7 @@ func TestInvalidUserNameAlert(t TestingTB, ctx *TestingContext) {
 	t.Logf("Deleted %s openshift user", userLong2)
 
 	// Validate ThreeScaleUserCreationFailed alert is no longer firing
-	validateAlertIsNotFiring(t, ctx, userFailedCreateAlertName)
+	validateAlertIsNotFiring(t, ctx, userFailedCreateAlertName, prometheusPod, command)
 
 	// Login as dedicated admin user
 	customerAdminUsername := fmt.Sprintf("%v%02d", defaultDedicatedAdminName, 1)
@@ -150,9 +157,10 @@ func pollOpenshiftUserLogin(t TestingTB, ctx *TestingContext, masterURL, userNam
 	}
 }
 
-func validateAlertIsFiring(t TestingTB, ctx *TestingContext, alertName string) {
+func validateAlertIsFiring(t TestingTB, ctx *TestingContext, alertName string, monitoringNamespace string,
+								prometheusPod string, command string) {
 	if err := wait.PollImmediate(time.Second*10, time.Minute*8, func() (done bool, err error) {
-		getAlertErr := getFiringAlerts(t, ctx)
+		getAlertErr := getFiringAlerts(t, ctx, monitoringNamespace, prometheusPod, command)
 
 		// getAlertErr should not be nil as DeadMansSwitch & at least specific alert should be firing
 		if getAlertErr == nil {
@@ -174,10 +182,11 @@ func validateAlertIsFiring(t TestingTB, ctx *TestingContext, alertName string) {
 	t.Logf("%s alert is firing", alertName)
 }
 
-func validateAlertIsNotFiring(t TestingTB, ctx *TestingContext, alertName string) {
+func validateAlertIsNotFiring(t TestingTB, ctx *TestingContext, alertName string,
+								prometheusPod string, command string) {
 	if err := wait.PollImmediate(time.Second*10, time.Minute*8, func() (done bool, err error) {
 		// getAlertErr will be nil if only DeadMansSwitch alert is firing
-		getAlertErr := getFiringAlerts(t, ctx)
+		getAlertErr := getFiringAlerts(t, ctx, ObservabilityProductNamespace, prometheusPod, command)
 		if getAlertErr == nil {
 			return true, nil
 		}

@@ -81,7 +81,7 @@ var (
 		},
 	}
 
-	middlewareMonitoringRoutes = []ExpectedRoute{
+	observabilityRoutes = []ExpectedRoute{
 		ExpectedRoute{
 			Name:  "alertmanager-route",
 			isTLS: true,
@@ -162,7 +162,7 @@ var rhmi2ExpectedRoutes = map[string][]ExpectedRoute{
 	"amq-online":                     amqOnlineRoutes,
 	"codeready-workspaces":           codeReadyRoutes,
 	"fuse":                           fuseRoutes,
-	"middleware-monitoring-operator": middlewareMonitoringRoutes,
+	"observability": 				  observabilityRoutes,
 	"rhsso":                          rhssoRoutes,
 	"solution-explorer":              solutionExplorerRoutes,
 	"ups":                            upsRoutes,
@@ -172,7 +172,7 @@ var rhmi2ExpectedRoutes = map[string][]ExpectedRoute{
 
 var managedApiExpectedRoutes = map[string][]ExpectedRoute{
 	"3scale":                         threeScaleRoutes,
-	"middleware-monitoring-operator": middlewareMonitoringRoutes,
+	"observability": 				  observabilityRoutes,
 	"rhsso":                          rhssoRoutes,
 	"user-sso":                       rhoamUserSsoRoutes,
 	"customer-monitoring-operator":   customerGrafanaRoutes,

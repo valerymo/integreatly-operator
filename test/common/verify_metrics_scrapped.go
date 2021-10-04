@@ -18,9 +18,9 @@ func mangedApiTargets() map[string][]string {
 
 func TestMetricsScrappedByPrometheus(t TestingTB, ctx *TestingContext) {
 	// get all active targets in prometheus
-	output, err := execToPod("curl localhost:9090/api/v1/targets?state=active",
-		"prometheus-application-monitoring-0",
-		GetPrefixedNamespace("middleware-monitoring-operator"),
+	output, err := execToPod("wget -qO - localhost:9090/api/v1/targets?state=active",
+		"prometheus-kafka-prometheus-0",
+		GetPrefixedNamespace("observability"),
 		"prometheus",
 		ctx)
 	if err != nil {
@@ -52,6 +52,7 @@ func TestMetricsScrappedByPrometheus(t TestingTB, ctx *TestingContext) {
 			// check that metrics is being correctly scrapped by target
 			correctlyScrapping := false
 			for _, target := range targetResult.Active {
+				fmt.Printf("########  Debug1, target..: %v, targetName: %v, ns: %v\n", target.DiscoveredLabels["job"], targetName, ns)
 				if target.DiscoveredLabels["job"] == fmt.Sprintf("%s%s", ns, targetName) && target.Health == prometheusv1.HealthGood && target.ScrapeURL != "" {
 					correctlyScrapping = true
 					break
