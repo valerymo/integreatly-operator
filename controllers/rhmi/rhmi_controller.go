@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -345,6 +346,16 @@ func (r *RHMIReconciler) Reconcile(request ctrl.Request) (ctrl.Result, error) {
 		return r.handleUninstall(installation, installType, request)
 	}
 
+	clusterVersionCR, err := resources.GetClusterVersionCR(context.TODO(), r.Client)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("error getting cluster version information: %w", err)
+	}
+
+	externalClusterId, err := resources.GetExternalClusterId(clusterVersionCR)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("error getting external cluster ID: %w", err)
+	}
+
 	// If no current or target version is set this is the first installation of rhmi.
 	if upgradeFirstReconcile(installation) || firstInstallFirstReconcile(installation) {
 		installation.Status.ToVersion = version.GetVersionByType(installation.Spec.Type)
@@ -352,12 +363,12 @@ func (r *RHMIReconciler) Reconcile(request ctrl.Request) (ctrl.Result, error) {
 		if err := r.Status().Update(context.TODO(), installation); err != nil {
 			return ctrl.Result{}, err
 		}
-		metrics.SetRhmiVersions(string(installation.Status.Stage), installation.Status.Version, installation.Status.ToVersion, installation.CreationTimestamp.Unix())
+		metrics.SetRhmiVersions(string(installation.Status.Stage), installation.Status.Version, installation.Status.ToVersion, string(externalClusterId), installation.CreationTimestamp.Unix())
 	}
 
 	// Check for stage complete to avoid setting the metric when installation is happening
 	if string(installation.Status.Stage) == "complete" {
-		metrics.SetRhmiVersions(string(installation.Status.Stage), installation.Status.Version, installation.Status.ToVersion, installation.CreationTimestamp.Unix())
+		metrics.SetRhmiVersions(string(installation.Status.Stage), installation.Status.Version, installation.Status.ToVersion, string(externalClusterId), installation.CreationTimestamp.Unix())
 
 		metrics.SetQuota(installation.Status.Quota, installation.Status.ToQuota)
 	}
@@ -374,11 +385,11 @@ func (r *RHMIReconciler) Reconcile(request ctrl.Request) (ctrl.Result, error) {
 		log.Error("Error reconciling alerts for the rhmi installation", err)
 	}
 
-	log.Info("set alerts metric")
-	err = r.composeAndSetAlertMetric(installation, r.restConfig, configManager)
+	log.Info("set alerts summary metric")
+	err = r.composeAndSetAlertsSummaryMetric(installation, configManager)
 	if err != nil {
 		if installation.Status.Version == "" && installation.Status.ToVersion != "" {
-			log.Warning(fmt.Sprintf("Initial installation, error setting alerts metric: %s", err))
+			log.Warning(fmt.Sprintf("Initial installation, possible monitoring not available: %s", err))
 		} else {
 			log.Error("error setting alerts metric:", err)
 		}
@@ -429,7 +440,7 @@ func (r *RHMIReconciler) Reconcile(request ctrl.Request) (ctrl.Result, error) {
 	if installation.Status.ToVersion == version.GetVersionByType(installation.Spec.Type) && !installInProgress && !productVersionMismatchFound {
 		installation.Status.Version = version.GetVersionByType(installation.Spec.Type)
 		installation.Status.ToVersion = ""
-		metrics.SetRhmiVersions(string(installation.Status.Stage), installation.Status.Version, installation.Status.ToVersion, installation.CreationTimestamp.Unix())
+		metrics.SetRhmiVersions(string(installation.Status.Stage), installation.Status.Version, installation.Status.ToVersion, string(externalClusterId), installation.CreationTimestamp.Unix())
 		if rhmiv1alpha1.IsRHOAM(rhmiv1alpha1.InstallationType(installation.Spec.Type)) {
 			installation.Status.Quota = installationQuota.GetName()
 			installation.Status.ToQuota = ""
@@ -1385,8 +1396,8 @@ func (r *RHMIReconciler) createInstallationCR(ctx context.Context, serverClient 
 	return installation, nil
 }
 
-func (r *RHMIReconciler) composeAndSetAlertMetric(installation *rhmiv1alpha1.RHMI, rc *rest.Config, configManager *config.Manager) error {
-	var alerts []metrics.AlertMetric
+func (r *RHMIReconciler) composeAndSetAlertsSummaryMetric(installation *rhmiv1alpha1.RHMI, configManager *config.Manager) error {
+	var alerts resources.AlertMetrics
 
 	alertingNamespaces, err := r.getAlertingNamespace(installation, configManager)
 	if err != nil {
@@ -1398,32 +1409,41 @@ func (r *RHMIReconciler) composeAndSetAlertMetric(installation *rhmiv1alpha1.RHM
 		return fmt.Errorf("getting observability configuration failed: %w", err)
 	}
 
+	clusterVersionCR, err := resources.GetClusterVersionCR(context.TODO(), r.Client)
+	if err != nil {
+		return fmt.Errorf("error getting cluster version information: %w", err)
+	}
+
+	externalClusterId, err := resources.GetExternalClusterId(clusterVersionCR)
+	if err != nil {
+		return fmt.Errorf("error getting external cluster ID: %w", err)
+	}
+
 	for namespace, _ := range alertingNamespaces {
 		if namespace == observability.GetNamespace() {
-			alerts, err = r.composeAlertMetric("prometheus", namespace, rc)
+			alerts, err = r.composeAlertMetric("prometheus", namespace)
 			if err != nil {
 				return fmt.Errorf("composing alert metric failed: %w", err)
 			}
-			metrics.SetRHOAMAlerts(alerts)
+			metrics.SetRHOAMAlertsSummary(alerts, string(externalClusterId))
+			return nil
 		}
 	}
 
 	return nil
 }
 
-func (r *RHMIReconciler) composeAlertMetric(route string, namespace string, rc *rest.Config) ([]metrics.AlertMetric, error) {
-	var alerts metrics.AlertMetrics
+func (r *RHMIReconciler) composeAlertMetric(route string, namespace string) (resources.AlertMetrics, error) {
 	endpoint := "/api/v1/alerts"
 
-	url, err := r.getURLFromRoute(route, namespace, rc)
+	url, err := r.getURLFromRoute(route, namespace, r.restConfig)
 	if err != nil {
-		return alerts.Alerts, fmt.Errorf("error getting route : %w", err)
+		return nil, fmt.Errorf("error getting route : %w", err)
 	}
-	url = url + endpoint
 
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s%s", url, endpoint), nil)
 	if err != nil {
-		return alerts.Alerts, fmt.Errorf("error on request : %w", err)
+		return nil, fmt.Errorf("error on request : %w", err)
 	}
 	var bearer = "Bearer " + r.restConfig.BearerToken
 	req.Header.Add("Authorization", bearer)
@@ -1433,7 +1453,7 @@ func (r *RHMIReconciler) composeAlertMetric(route string, namespace string, rc *
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return alerts.Alerts, fmt.Errorf("error on response : %w", err)
+		return nil, fmt.Errorf("error on response : %w", err)
 	}
 
 	defer func(Body io.ReadCloser) {
@@ -1445,30 +1465,42 @@ func (r *RHMIReconciler) composeAlertMetric(route string, namespace string, rc *
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return alerts.Alerts, fmt.Errorf("unable to read body : %w", err)
+		return nil, fmt.Errorf("unable to read body : %w", err)
 	}
 
 	var alertResp struct {
 		Status string `json:"status"`
 		Data   struct {
-			Alerts []struct {
-				Labels models.LabelSet `json:"labels"`
-				State  string          `json:"state"`
-			} `json:"alerts"`
+			Alerts []v1.Alert `json:"alerts"`
 		} `json:"data"`
 	}
 
-	err = json.Unmarshal([]byte(body), &alertResp)
+	err = json.Unmarshal(body, &alertResp)
 	if err != nil {
-		return alerts.Alerts, fmt.Errorf("failed to unmarshal json: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal json: %w", err)
 	}
 
-	alerts = formatAlerts(alertResp.Data.Alerts)
+	alerts := formatAlerts(alertResp.Data.Alerts)
 
-	return alerts.Alerts, nil
+	return alerts, nil
 }
 
 func (r *RHMIReconciler) setRHOAMClusterMetric() error {
+
+	clusterVersionCR, err := resources.GetClusterVersionCR(context.TODO(), r.Client)
+	if err != nil {
+		return fmt.Errorf("error getting cluster version information: %w", err)
+	}
+
+	externalClusterId, err := resources.GetExternalClusterId(clusterVersionCR)
+	if err != nil {
+		return fmt.Errorf("error getting external cluster ID: %w", err)
+	}
+
+	openshiftVersion, err := resources.GetClusterVersion(clusterVersionCR)
+	if err != nil {
+		return fmt.Errorf("error getting openshift version: %w", err)
+	}
 
 	infra, err := resources.GetClusterInfrastructure(context.TODO(), r.Client)
 	if err != nil {
@@ -1477,13 +1509,13 @@ func (r *RHMIReconciler) setRHOAMClusterMetric() error {
 
 	clusterType, err := resources.GetClusterType(infra)
 	if err != nil {
-		if clusterType == "Unknown" {
-			metrics.SetRHOAMCluster(clusterType, 1)
+		if clusterType == "" {
+			metrics.SetRHOAMCluster("Unknown", string(externalClusterId), openshiftVersion, 1)
 		}
 		return fmt.Errorf("error getting cluster type: %w", err)
 	}
 
-	metrics.SetRHOAMCluster(clusterType, 1)
+	metrics.SetRHOAMCluster(clusterType, string(externalClusterId), openshiftVersion, 1)
 	return nil
 }
 
@@ -1620,31 +1652,27 @@ func getInstallation() (*rhmiv1alpha1.RHMI, error) {
 	}, nil
 }
 
-func formatAlerts(alerts []struct {
-	Labels models.LabelSet `json:"labels"`
-	State  string          `json:"state"`
-}) metrics.AlertMetrics {
-	alertMetrics := metrics.AlertMetrics{}
+func formatAlerts(alerts []v1.Alert) resources.AlertMetrics {
+	alertMetrics := make(resources.AlertMetrics)
 
 	for _, alert := range alerts {
 		if alert.Labels["alertname"] == "DeadMansSwitch" {
-			// DeadManSwitch alert is always fire and only a problem if not firing.
-			// Skipping the inclusion to have a more accurate metric.
+			// DeadManSwitch alert is always firing.
+			// Skipping its inclusion for a more accurate metric.
 			continue
 		}
-		if !alertMetrics.Contains(alert) {
-			alertMetrics.Alerts = append(alertMetrics.Alerts, metrics.AlertMetric{
-				Name:     alert.Labels["alertname"],
-				Severity: alert.Labels["severity"],
-				State:    alert.State,
-				Value:    0,
-			})
+
+		alertMetricKey := resources.AlertMetric{
+			Name:     alert.Labels["alertname"],
+			Severity: alert.Labels["severity"],
+			State:    alert.State,
 		}
 
-		for index := range alertMetrics.Alerts {
-			if alertMetrics.Alerts[index].Contains(alert) {
-				alertMetrics.Alerts[index].Value++
-			}
+		_, exists := alertMetrics[alertMetricKey]
+		if exists {
+			alertMetrics[alertMetricKey]++
+		} else {
+			alertMetrics[alertMetricKey] = 1
 		}
 	}
 

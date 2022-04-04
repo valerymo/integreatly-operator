@@ -7,8 +7,6 @@ import (
 	"github.com/integr8ly/integreatly-operator/pkg/resources"
 	l "github.com/integr8ly/integreatly-operator/pkg/resources/logger"
 	"github.com/integr8ly/integreatly-operator/version"
-	"github.com/prometheus/alertmanager/api/v2/models"
-
 	"github.com/prometheus/client_golang/prometheus"
 	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -80,8 +78,10 @@ var (
 		},
 		[]string{
 			"stage",
+			"status",
 			"version",
 			"to_version",
+			"externalID",
 		},
 	)
 
@@ -95,25 +95,28 @@ var (
 		},
 	)
 
-	RHOAMAlert = prometheus.NewGaugeVec(
+	RHOAMAlertsSummary = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "rhoam_alerts",
+			Name: "rhoam_alerts_summary",
 			Help: "RHOAM alerts summary, excludes DeadManSwitch",
 		},
 		[]string{
 			"alert",
 			"severity",
 			"state",
+			"externalID",
 		},
 	)
 
 	RHOAMCluster = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "rhoam_cluster",
-			Help: "Gives Cluster type for the RHOAM installation",
+			Help: "Provides Cluster information for the RHOAM installation",
 		},
 		[]string{
 			"type",
+			"externalID",
+			"version",
 		},
 	)
 
@@ -164,17 +167,6 @@ var (
 	)
 )
 
-type AlertMetric struct {
-	Name     string
-	Severity string
-	State    string
-	Value    int64
-}
-
-type AlertMetrics struct {
-	Alerts []AlertMetric
-}
-
 // SetRHMIInfo exposes rhmi info metrics with labels from the installation CR
 func SetRHMIInfo(installation *integreatlyv1alpha1.RHMI) {
 	RHMIInfo.WithLabelValues(installation.Spec.UseClusterStorage,
@@ -202,29 +194,33 @@ func SetRHMIStatus(installation *integreatlyv1alpha1.RHMI) {
 	}
 }
 
-func SetRhmiVersions(stage string, version string, toVersion string, firstInstallTimestamp int64) {
+func SetRhmiVersions(stage string, version string, toVersion string, externalID string, firstInstallTimestamp int64) {
 	RHMIVersion.Reset()
 	RHMIVersion.WithLabelValues(stage, version, toVersion).Set(float64(firstInstallTimestamp))
 
 	RHOAMVersion.Reset()
-	RHOAMVersion.WithLabelValues(stage, version, toVersion).Set(float64(firstInstallTimestamp))
+	status := resources.InstallationState(version, toVersion)
+	RHOAMVersion.WithLabelValues(stage, status, version, toVersion, externalID).Set(float64(firstInstallTimestamp))
 }
 
-func SetRHOAMAlerts(alerts []AlertMetric) {
-	RHOAMAlert.Reset()
-	for index := range alerts {
-		RHOAMAlert.With(prometheus.Labels{
-			"alert":    alerts[index].Name,
-			"severity": alerts[index].Severity,
-			"state":    alerts[index].State,
-		}).Set(float64(alerts[index].Value))
+func SetRHOAMAlertsSummary(alerts resources.AlertMetrics, externalID string) {
+	RHOAMAlertsSummary.Reset()
+	for key, value := range alerts {
+		RHOAMAlertsSummary.With(prometheus.Labels{
+			"alert":      string(key.Name),
+			"severity":   string(key.Severity),
+			"state":      string(key.State),
+			"externalID": externalID,
+		}).Set(float64(value))
 	}
 }
 
-func SetRHOAMCluster(cluster string, value int64) {
+func SetRHOAMCluster(cluster string, externalID string, version string, value int64) {
 	RHOAMCluster.Reset()
 	RHOAMCluster.With(prometheus.Labels{
-		"type": cluster,
+		"type":       cluster,
+		"externalID": externalID,
+		"version":    version,
 	}).Set(float64(value))
 }
 
@@ -268,51 +264,4 @@ func GetContainerCPUMetric(ctx context.Context, serverClient k8sclient.Client, l
 	} else {
 		return "node_namespace_pod_container:container_cpu_usage_seconds_total:sum_irate", nil
 	}
-}
-
-func (a *AlertMetric) ContainsName(name string) bool {
-	if a.Name == name {
-		return true
-	}
-	return false
-}
-
-func (a *AlertMetric) ContainsSeverity(severity string) bool {
-	if a.Severity == severity {
-		return true
-	}
-	return false
-}
-
-func (a *AlertMetric) ContainsState(state string) bool {
-	if a.State == state {
-		return true
-	}
-	return false
-}
-
-func (a *AlertMetric) Contains(alert struct {
-	Labels models.LabelSet `json:"labels"`
-	State  string          `json:"state"`
-}) bool {
-
-	if a.ContainsName(alert.Labels["alertname"]) && a.ContainsSeverity(alert.Labels["severity"]) && a.ContainsState(alert.State) {
-		return true
-	}
-
-	return false
-}
-
-func (a *AlertMetrics) Contains(alert struct {
-	Labels models.LabelSet `json:"labels"`
-	State  string          `json:"state"`
-}) bool {
-
-	for _, current := range a.Alerts {
-		if current.Contains(alert) {
-			return true
-		}
-	}
-
-	return false
 }
