@@ -287,6 +287,12 @@ set_related_images() {
   printf -v m "$containerImageField" ; m="$m" yq e -i ".metadata.annotations.containerImages= strenv(m)" bundles/$OLM_TYPE/${VERSION}/manifests/$OLM_TYPE.clusterserviceversion.yaml
 }
 
+update_smtp_from() {
+  echo "Updating the CSV's 'ALERT_SMTP_FROM' value for multitenant RHOAM"
+
+  yq e -i '(.spec.install.spec.deployments.[0].spec.template.spec.containers[0].env.[] | select(.name == "ALERT_SMTP_FROM").value) |= "noreply-alert@rhmw.io"' bundles/$OLM_TYPE/${VERSION}/manifests/$OLM_TYPE.clusterserviceversion.yaml
+}
+
 if [[ -z "$SEMVER" ]]; then
  echo "ERROR: no SEMVER value set"
  exit 1
@@ -337,6 +343,11 @@ fi
 # The following is disabled to unblock rc1 cut of 1.13.0 - it should be renabled before final release.
 if [[ "${OLM_TYPE}" == "managed-api-service" ]] || [[ "${OLM_TYPE}" == "multitenant-managed-api-service" ]]; then
  set_related_images
+fi
+
+# If building bundles for multitenant RHOAM, update the ALERT_SMTP_FROM value for the Developer Sandbox clusters
+if [[ "${OLM_TYPE}" == "multitenant-managed-api-service" ]]; then
+ update_smtp_from
 fi
 
 # Move bundle.Dockerfile to the bundle folder
