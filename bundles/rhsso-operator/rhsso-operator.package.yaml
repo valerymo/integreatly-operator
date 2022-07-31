@@ -1,0 +1,5 @@
+channels:
+  - currentCSV: rhsso-operator.v1.18.0
+    name: rhmi
+defaultChannel: rhmi
+packageName: rhsso-operator
