@@ -2,8 +2,11 @@ package controllers
 
 import (
 	"context"
+	"fmt"
+	crov1alpha1 "github.com/integr8ly/cloud-resource-operator/apis/integreatly/v1alpha1"
 	"github.com/integr8ly/integreatly-operator/pkg/resources/k8s"
 	"github.com/integr8ly/integreatly-operator/pkg/resources/rhmi"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"strings"
 	"time"
 
@@ -215,6 +218,11 @@ func (r *SubscriptionReconciler) HandleUpgrades(ctx context.Context, rhmiSubscri
 
 	isServiceAffecting := rhmiConfigs.IsUpgradeServiceAffecting(latestRHMICSV)
 
+	err = r.allowDatabaseUpdates(ctx, r.Client, installation, isServiceAffecting)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	if !isServiceAffecting && !latestRHMIInstallPlan.Spec.Approved {
 		eventRecorder := r.mgr.GetEventRecorderFor("RHMI Upgrade")
 		err = rhmiConfigs.ApproveUpgrade(ctx, r.Client, installation, latestRHMIInstallPlan, eventRecorder)
@@ -240,4 +248,41 @@ func (r *SubscriptionReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&operatorsv1alpha1.Subscription{}).
 		Complete(r)
+}
+
+func (r *SubscriptionReconciler) allowDatabaseUpdates(ctx context.Context, client k8sclient.Client, installation *integreatlyv1alpha1.RHMI, isServiceAffecting bool) error {
+	if installation.Status.ToVersion != "" && isServiceAffecting {
+		postgresInstances := &crov1alpha1.PostgresList{}
+		err := client.List(ctx, postgresInstances)
+		if err != nil {
+			return fmt.Errorf("failed to list postgres instances: %w", err)
+		}
+		for _, pgInst := range postgresInstances.Items {
+			_, err := controllerutil.CreateOrUpdate(ctx, client, &pgInst, func() error {
+				pgInst.Spec.AllowUpdates = true
+				return nil
+			})
+			if err != nil {
+				return err
+			}
+		}
+
+		redisInstances := &crov1alpha1.RedisList{}
+		err = client.List(ctx, redisInstances)
+		if err != nil {
+			return fmt.Errorf("failed to list redis instances: %w", err)
+		}
+
+		for _, rdInst := range redisInstances.Items {
+			_, err := controllerutil.CreateOrUpdate(ctx, client, &rdInst, func() error {
+				rdInst.Spec.AllowUpdates = true
+				return nil
+			})
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
