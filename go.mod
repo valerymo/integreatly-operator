@@ -193,6 +193,7 @@ replace (
 	github.com/docker/docker => github.com/docker/docker v1.4.2-0.20200203170920-46ec8731fbce
 	github.com/go-logr/logr => github.com/go-logr/logr v0.2.1
 	github.com/go-logr/zapr => github.com/go-logr/zapr v0.2.0
+	github.com/integr8ly/cloud-resource-operator => /home/vmogilev/GitHub/cloud-resource-operator
 	github.com/integr8ly/grafana-operator/v3 => github.com/integr8ly/grafana-operator/v3 v3.6.0
 	github.com/openshift/api => github.com/openshift/api v0.0.0-20210831091943-07e756545ac1
 	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20210112165513-ebc401615f47
